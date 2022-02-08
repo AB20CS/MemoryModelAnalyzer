@@ -203,6 +203,13 @@ void printOutput(Stats *stats, LLHeads *heads) {
         p = p->next;
     }
 
+    printf("  - Total number of variables per function:\n");
+    p = heads->func_head;
+    while (p != NULL) {
+        printf("    %s: %d\n", p->function_name, p->num_variables);
+        p = p->next;
+    }
+
     printf("//////////////////////////////\n");
 }
 
