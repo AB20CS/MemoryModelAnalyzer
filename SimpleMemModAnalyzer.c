@@ -234,6 +234,8 @@ int main(int argc, char **argv) {
 
     printOutput(stats, heads);
 
-    free(stats); // free struct
+    free(stats); // free stats struct
+    free(heads); // free linked list heads
+    
     return 0;
 }
