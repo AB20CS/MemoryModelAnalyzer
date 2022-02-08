@@ -13,15 +13,57 @@ typedef struct StatsStruct {
 
 
 // node in linked list for functions
-typedef struct FunctionLinkedList {
+typedef struct FunctionLinkedListNode {
     char function_name[1024];
     int num_lines;
     int num_variables;
-    struct FunctionLinkedList *next;
+    struct FunctionLinkedListNode *next;
 } FunctionNode;
 
+// node in linked list for RO Data
+typedef struct ROLinkedListNode {
+    char var_name[1024];
+    char scope[1024];
+    char type[1024];
+    int size;
+    struct ROLinkedListNode *next;
+} RONode;
+
+// node in linked list for static data
+typedef struct StaticLinkedListNode {
+    char var_name[1024];
+    char scope[1024];
+    char type[1024];
+    int size;
+    struct StaticLinkedListNode *next;
+} StaticNode;
+
+// node in linked list for heap
+typedef struct HeapLinkedListNode {
+    char var_name[1024];
+    char scope[1024];
+    char type[1024];
+    int size;
+    struct HeapLinkedListNode *next;
+} HeapNode;
+
+// node in linked list for stack
+typedef struct StackLinkedListNode {
+    char var_name[1024];
+    char scope[1024];
+    char type[1024];
+    int size;
+    struct StackLinkedListNode *next;
+} StackNode;
+
+
+// holds head nodes in all linked lists used
 typedef struct LinkedListHeads {
     FunctionNode *func_head;
+    RONode *ro_head;
+    StaticNode *static_head;
+    HeapNode *heap_head;
+    StackNode *stack_head;
 } LLHeads;
 
 /**
@@ -236,6 +278,6 @@ int main(int argc, char **argv) {
 
     free(stats); // free stats struct
     free(heads); // free linked list heads
-    
+
     return 0;
 }
