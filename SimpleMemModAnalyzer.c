@@ -137,7 +137,6 @@ int readFile(Stats *stats, int argc, char **argv, LLHeads *heads) {
             }
             else {
                 if (!strstr(line, "{") && !strstr(line, "}") && !isEmpty(line)) {
-                    printf("-%s\n", line);
                     curr_func->num_lines++;
                 }
                 // end of function reached
