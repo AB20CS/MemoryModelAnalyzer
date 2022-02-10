@@ -20,50 +20,22 @@ typedef struct FunctionLinkedListNode {
     struct FunctionLinkedListNode *next;
 } FunctionNode;
 
-// node in linked list for RO Data
-typedef struct ROLinkedListNode {
+// node in linked list for a memory unit
+typedef struct MemoryUnitListNode {
     char var_name[1024];
     char scope[1024];
     char type[1024];
     int size;
-    struct ROLinkedListNode *next;
-} RONode;
-
-// node in linked list for static data
-typedef struct StaticLinkedListNode {
-    char var_name[1024];
-    char scope[1024];
-    char type[1024];
-    int size;
-    struct StaticLinkedListNode *next;
-} StaticNode;
-
-// node in linked list for heap
-typedef struct HeapLinkedListNode {
-    char var_name[1024];
-    char scope[1024];
-    char type[1024];
-    int size;
-    struct HeapLinkedListNode *next;
-} HeapNode;
-
-// node in linked list for stack
-typedef struct StackLinkedListNode {
-    char var_name[1024];
-    char scope[1024];
-    char type[1024];
-    int size;
-    struct StackLinkedListNode *next;
-} StackNode;
-
+    struct MemoryUnitListNode *next;
+} MemNode;
 
 // holds head nodes in all linked lists used
 typedef struct LinkedListHeads {
     FunctionNode *func_head;
-    RONode *ro_head;
-    StaticNode *static_head;
-    HeapNode *heap_head;
-    StackNode *stack_head;
+    MemNode *ro_head;
+    MemNode *static_head;
+    MemNode *heap_head;
+    MemNode *stack_head;
 } LLHeads;
 
 /**
@@ -85,20 +57,6 @@ void insertFuncNode(LLHeads* heads, FunctionNode *node) {
     
 }
 
-/**
- * Returns true iff str contains only whitespace characters
- * 
- */
-bool isEmpty(char *str) {
-    while (*str != '\0') {
-        if(!isspace((char)*str)) {
-            return false;
-        }
-        str++;
-    }
-
-    return true;
-}
 
 /**
  * Returns true iff line is a function header
@@ -115,7 +73,6 @@ bool isFunctionHeader(char *line, char **types, int num_types) {
             }
         }
     }
-    
 }
 
 /**
@@ -142,6 +99,81 @@ FunctionNode *initFunction(char *header, LLHeads *heads) {
 
 }
 
+/**
+ * Inserts node into linked list whose head is head
+ * 
+ */
+void insertMemNode(MemNode *head, MemNode *node) {
+
+    if (head == NULL) {
+        head = node;
+    }
+    else {
+        MemNode *p = head;
+        while (p->next != NULL) {
+            p = p->next;
+        }
+        p->next = node;
+    }
+    
+}
+
+/**
+ * Returns true iff line contains a variable declaration
+ * and inserts the variable into the appropriate linked list
+ * if a variable is contained
+ * 
+ */
+bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func, MemNode *head) {
+    
+    bool contains_var = false;
+
+    // empty string
+    if (strlen(line) == 0) {
+        return false;
+    }
+    
+    char line_copy[1024]; // copy of line for tokenization
+    strcpy(line_copy, line);
+    char *type = strtok(line_copy, " ");
+
+    strcat(type, " ");
+    
+    for (int i = 0; i < num_types; i++) {
+        if (strcmp(type, types[i]) == 0) {
+            contains_var = true;
+            break;
+        }
+    }
+
+    if (contains_var) {
+        // modify type field
+        if (strstr(line, "[") && strstr(line, "]")) { // if variable is array
+            strcat(type, "[]");
+        }
+        else { // remove added space
+            type[strlen(type) - 1] = '\0';
+        }
+
+
+        // construct node
+        MemNode *new_var = malloc(sizeof(MemNode));
+
+        strcpy(new_var->type, type);
+        if (curr_func == NULL) { // if variable is global
+            strcpy(new_var->scope, "global");
+        }
+        else {
+            strcpy(new_var->scope, curr_func->function_name);
+        }
+        insertMemNode(head, new_var);
+    }
+    
+
+    return contains_var;
+
+}
+
 
 /**
  * Iterates and reads through lines of source file.
@@ -163,24 +195,45 @@ int readFile(Stats *stats, int argc, char **argv, LLHeads *heads) {
         return 1;
     }
     else {
-        char *types[10] = {"void ", "int ", "float ", "char ", "int* ", "float* ", "char* ", "int [] ", "float [] ", "char [] "};
+        char *types[7] = {"void ", "int ", "float ", "char ", "int* ", "float* ", "char* "};
+        int num_types = 7;
+
         bool reading_function = false;
         FunctionNode *curr_func = NULL;
 
-        char line[1024];
-        while (fgets(line, sizeof(line), src_file) != NULL) {
-            
+        bool is_global_var;
+
+        char line[1024]; // holds one line at a time verbatim from source code
+        while (fgets(line, sizeof(line), src_file) != NULL) {    
+            // ignore comments
+            if (strncmp(line, "//", 2) == 0) { // if whole line is a comment
+                strcpy(line, "");
+            }
+            else {
+                strcpy(line, strtok(line, "//"));
+            }
+
+
             if (!reading_function) {
-                reading_function = isFunctionHeader(line, types, 10);
+                reading_function = isFunctionHeader(line, types, num_types);
                 if (reading_function == true) {
                     curr_func = initFunction(line, heads);
                     stats->num_functions++; // increment num_functions
                 }
+                else {
+                    // global variables
+                    is_global_var = isVar(line, types, num_types, curr_func, heads->static_head);
+                }
             }
             else {
-                if (!strstr(line, "{") && !strstr(line, "}") && !isEmpty(line)) {
+                if (!strstr(line, "{") && !strstr(line, "}")) {
                     curr_func->num_lines++;
                 }
+                
+                if (isVar(line, types, num_types, curr_func, heads->static_head) == true) {
+                    curr_func->num_variables++;
+                }
+
                 // end of function reached
                 if (strstr(line, "}")) {
                     reading_function = false; 
@@ -266,6 +319,7 @@ int main(int argc, char **argv) {
     stats->num_functions = 0;
 
     heads->func_head = NULL;
+    heads->stack_head = NULL;
 
     // Call functions
     int validFile = readFile(stats, argc, argv, heads);
