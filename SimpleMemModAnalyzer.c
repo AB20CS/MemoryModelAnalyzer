@@ -57,6 +57,24 @@ void insertFuncNode(LLHeads* heads, FunctionNode *node) {
     
 }
 
+/**
+ * Inserts node into linked list whose head is head
+ * 
+ */
+void insertMemNode(MemNode *head, MemNode *node) {
+    if (head == NULL) {
+        head = node;
+    }
+    else {
+        MemNode *p = head;
+        while (p->next != NULL) {
+            p = p->next;
+        }
+        p->next = node;
+    }
+    
+}
+
 
 /**
  * Returns true iff line is a function header
@@ -73,49 +91,6 @@ bool isFunctionHeader(char *line, char **types, int num_types) {
             }
         }
     }
-}
-
-/**
- * Initializes a FunctionLL node for the current function
- * whose header is header and inserts the new node in the linked
- * list whose head is head
- * 
- */
-FunctionNode *initFunction(char *header, LLHeads *heads) {
-    
-    char *return_type = strtok(header, " ");
-    char *function_name = strtok(NULL, "(");
-
-
-    FunctionNode *new_func = malloc(sizeof(FunctionNode));
-    new_func->num_lines = 0;
-    new_func->num_variables = 0;
-    strcpy(new_func->function_name, function_name);
-    new_func->next = NULL;
-
-    insertFuncNode(heads, new_func);
-
-    return new_func;
-
-}
-
-/**
- * Inserts node into linked list whose head is head
- * 
- */
-void insertMemNode(MemNode *head, MemNode *node) {
-
-    if (head == NULL) {
-        head = node;
-    }
-    else {
-        MemNode *p = head;
-        while (p->next != NULL) {
-            p = p->next;
-        }
-        p->next = node;
-    }
-    
 }
 
 /**
@@ -166,6 +141,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func, Mem
         else {
             strcpy(new_var->scope, curr_func->function_name);
         }
+        new_var->next = NULL;
         insertMemNode(head, new_var);
     }
     
@@ -176,11 +152,79 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func, Mem
 
 
 /**
+ * Initializes a FunctionLL node for the current function
+ * whose header is header and inserts the new node in the linked
+ * list whose head is head
+ * 
+ */
+FunctionNode *initFunction(char *header, LLHeads *heads) {
+    
+    // copy of header (for later)
+    char header_copy[1024];
+    strcpy(header_copy, header);
+
+    char *return_type = strtok(header, " ");
+    char *function_name = strtok(NULL, "(");
+
+
+    FunctionNode *new_func = malloc(sizeof(FunctionNode));
+    new_func->num_lines = 0;
+    new_func->num_variables = 0;
+    strcpy(new_func->function_name, function_name);
+    new_func->next = NULL;
+
+    insertFuncNode(heads, new_func);
+    
+    // keep track of paramaters as variables
+    char *params = strtok(header_copy, "(");
+    params = strtok(NULL, ")");
+    params = strtok(params, " ");
+
+    char *type;
+    char *param_name;
+
+    while (params != NULL) {
+        if (params[0] == ' ') {
+            params++; // remove first character if it is a space
+        }
+        type = params;
+        param_name = strtok(NULL, ",)");
+  
+        if (param_name[0] == '*') {
+            strcat(type, " *");
+            param_name++;
+        }
+
+        // construct node
+        MemNode *new_var = malloc(sizeof(MemNode));
+        strcpy(new_var->type, type);
+        strcpy(new_var->var_name, param_name);
+        strcpy(new_var->scope, new_func->function_name);
+        new_var->next = NULL;
+        insertMemNode(heads->stack_head, new_var);
+        new_func->num_variables++;
+
+        params = strtok(NULL, " ");
+    }
+    
+    MemNode *mp = heads->static_head;
+    while (mp != NULL) {
+        printf("STACK:\t%s\t%s\t%s\t%d\n", mp->var_name, mp->scope, mp->type, mp->size);
+        mp = mp->next;
+    }
+
+    return new_func;
+}
+
+
+/**
  * Iterates and reads through lines of source file.
  * Returns 0 iff there is a valid file indicated by user
  * 
  */
 int readFile(Stats *stats, int argc, char **argv, LLHeads *heads) {
+    
+
     FILE *src_file; // pointer to file with source code
     src_file = fopen(argv[1], "r");
 
@@ -195,6 +239,12 @@ int readFile(Stats *stats, int argc, char **argv, LLHeads *heads) {
         return 1;
     }
     else {
+        heads->func_head = NULL;
+        heads->ro_head = NULL;
+        heads->static_head = NULL;
+        heads->heap_head = NULL;
+        heads->stack_head = NULL;
+        
         char *types[7] = {"void ", "int ", "float ", "char ", "int* ", "float* ", "char* "};
         int num_types = 7;
 
@@ -204,7 +254,8 @@ int readFile(Stats *stats, int argc, char **argv, LLHeads *heads) {
         bool is_global_var;
 
         char line[1024]; // holds one line at a time verbatim from source code
-        while (fgets(line, sizeof(line), src_file) != NULL) {    
+        while (fgets(line, sizeof(line), src_file) != NULL) {  
+            
             // ignore comments
             if (strncmp(line, "//", 2) == 0) { // if whole line is a comment
                 strcpy(line, "");
@@ -246,6 +297,12 @@ int readFile(Stats *stats, int argc, char **argv, LLHeads *heads) {
         }
 
         fclose(src_file); // close file
+
+        MemNode *mp = heads->static_head;
+        while (mp != NULL) {
+            printf("STACK:\t%s\t%s\t%s\t%d\n", mp->var_name, mp->scope, mp->type, mp->size);
+            mp = mp->next;
+        }
         return 0;
     }
 }
@@ -260,6 +317,8 @@ void printOutput(Stats *stats, LLHeads *heads) {
     printf("***  exec // text ***\n");
     printf("   %s\n", stats->program_name);
 
+    MemNode *mp = NULL; // traversal pointer
+
     printf("\n### ROData ###       scope  type  size\n");
     // string_literals
 
@@ -273,7 +332,15 @@ void printOutput(Stats *stats, LLHeads *heads) {
 
     printf("\n### stack ###\n");
     // stack variables
-    
+    mp = heads->stack_head;
+    if (heads->stack_head == NULL) {
+        printf("hi\n");
+    }
+    while (mp != NULL) {
+        printf("\t%s\t%s\t%s\t%d\n", mp->var_name, mp->scope, mp->type, mp->size);
+        mp = mp->next;
+    }
+
     printf("\n**** STATS ****\n");
     printf("  - Total number of lines in the file: %d\n", stats->num_lines);
     
@@ -310,7 +377,7 @@ void printOutput(Stats *stats, LLHeads *heads) {
 
 int main(int argc, char **argv) {
     Stats *stats = malloc(sizeof(Stats));
-    LLHeads *heads = malloc(sizeof(heads));
+    LLHeads *heads = malloc(sizeof(LLHeads));
 
     // Initialize fields of stats
     if (argv[1] != NULL)
@@ -318,8 +385,7 @@ int main(int argc, char **argv) {
     stats->num_lines = 0;
     stats->num_functions = 0;
 
-    heads->func_head = NULL;
-    heads->stack_head = NULL;
+    
 
     // Call functions
     int validFile = readFile(stats, argc, argv, heads);
