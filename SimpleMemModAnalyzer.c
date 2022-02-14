@@ -90,19 +90,35 @@ void deleteFunctionList(FunctionNode *head) {
     }
 }
 
+
+/**
+ * Deletes a MemNode linked list whose head is head
+ * 
+ */
+void deleteMemList(MemNode *head) {
+    MemNode *p = head;
+    MemNode *q = NULL;
+
+    while (p != NULL) {
+        q = p->next;
+        free(p);
+        p = q;
+    }
+}
+
 /**
  * Returns the size of memory occupied by a type
  * 
  */
 int getSize(char *type, int num_elements) {
     int size_per_element;
-    if (strcmp(type, "int") == 0) {
+    if (strcmp(type, "int") == 0 || strcmp(type, "int []") == 0 || strcmp(type, "int[]") == 0) {
         size_per_element = sizeof(int);
     }
-    else if (strcmp(type, "float") == 0) {
+    else if (strcmp(type, "float") == 0 || strcmp(type, "float []") == 0 || strcmp(type, "float[]") == 0) {
         size_per_element = sizeof(float);
     }
-    else if (strcmp(type, "char") == 0) {
+    else if (strcmp(type, "char") == 0 || strcmp(type, "char []") == 0 || strcmp(type, "char[]") == 0) {
         size_per_element = sizeof(char);
     }
     else if (strcmp(type, "int *") == 0 || strcmp(type, "int*") == 0) {
@@ -195,11 +211,11 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
             while (isspace(*var_name)) {
                 var_name++;
             }
-            // cut out equals and spaces
+            // cut out equals, square brackets and spaces
             char var_tmp[1024];
             int i = 0;
             while (i < strlen(var_name)) {
-                if (var_name[i] == ' ' || var_name[i] == '=') {
+                if (var_name[i] == ' ' || var_name[i] == '=' || var_name[i] == '[') {
                     var_tmp[i] = '\0';
                     break;
                 }
@@ -215,6 +231,16 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                 // modify type field
                 if (strstr(line, "[") && strstr(line, "]")) { // if variable is array
                     strcat(type, "[]");
+                    char num_elements_str[100];
+                    char *idx = strchr(line, '[') + 1;
+                    int i = 0;
+                    while (*idx != ']') {
+                        num_elements_str[i] = *idx;
+                        i++;
+                        idx++;
+                    }
+                    num_elements_str[i] = '\0';
+                    num_elements = atoi(num_elements_str);
                 }
                 if (var_name[0] == '*') {
                     strcat(type, "*");
@@ -251,11 +277,6 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                         insertMemNode(heap_head, new_var);
                     }
                     else if (strstr(line, "= \"")) {
-                        char line_malloc[1024];
-                        // strcpy(line_malloc, line);
-                        // char *token = strtok(line_malloc, "(");
-                        // char *size_str = strtok(line_malloc, ")");
-                        // num_elements = atoi(size_str);
                         insertMemNode(ro_head, new_var);
                     }
                     else  {
@@ -516,11 +537,18 @@ void printOutput(Stats *stats, FunctionNode *func_head, MemNode *ro_head, MemNod
     }
 
     printf("//////////////////////////////\n");
+
+    deleteFunctionList(func_head);
+    deleteMemList(ro_head);
+    deleteMemList(static_head);
+    deleteMemList(heap_head);
+    deleteMemList(stack_head);
+
 }
 
 int main(int argc, char **argv) {
     Stats *stats = malloc(sizeof(Stats));
-    FunctionNode *func_head = malloc(sizeof(FunctionNode));
+    FunctionNode *func_head = malloc(sizeof(MemNode));
     MemNode *ro_head = malloc(sizeof(MemNode));
     MemNode *static_head = malloc(sizeof(MemNode));
     MemNode *heap_head = malloc(sizeof(MemNode));
@@ -537,12 +565,10 @@ int main(int argc, char **argv) {
     if (validFile != 0) {
         return validFile;
     }
-    
 
     printOutput(stats, func_head, ro_head, static_head, heap_head, stack_head);
 
     free(stats); // free stats struct
-    // deleteFunctionList(func_head);
-
+    
     return 0;
 }
