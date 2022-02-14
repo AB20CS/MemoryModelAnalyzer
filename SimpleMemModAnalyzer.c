@@ -352,7 +352,6 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
 
         params = strtok(NULL, " ");
     }
-    
 
     return new_func;
 }
@@ -371,12 +370,12 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
 
     // no file name given
     if (argc == 1) {
-        printf("Please enter the name of the file containing the source code.\n");
+        fprintf(stderr, "Please enter the name of the file containing the source code.\n");
         return 1;
     }
     // file does not exist
     if (src_file == NULL) {
-        printf("%s does not exist.\n", argv[1]);
+        fprintf(stderr, "%s does not exist.\n", argv[1]);
         return 1;
     }
     else {
