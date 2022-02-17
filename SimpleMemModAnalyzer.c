@@ -197,6 +197,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
     }
 
     if (contains_var) { 
+        
         char line_copy_var[1024]; // copy of line for tokenization
         strcpy(line_copy_var, line);
 
@@ -274,7 +275,6 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
                 // construct node
                 MemNode *new_var = malloc(sizeof(MemNode));
-
                 strcpy(new_var->type, type);
                 strcpy(new_var->var_name, var_name);
                 new_var->size = getSize(type, num_elements);
@@ -294,15 +294,69 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                         insertMemNode(ro_head, new_var);
                     }
                     else  {
-                        if (strstr(line, "malloc")) {
-                            char line_malloc[1024];
-                            // strcpy(line_malloc, line);
-                            // char *token = strtok(line_malloc, "(");
-                            // char *size_str = strtok(line_malloc, ")");
-                            // num_elements = atoi(size_str);
-                        }
                         insertMemNode(stack_head, new_var);
                     }
+                }
+
+                if (strstr(line, "malloc")) {
+                    MemNode *new_heap_var = malloc(sizeof(MemNode));
+                    strcpy(new_heap_var->var_name, var_name);
+                    new_heap_var->next = NULL;
+
+                    if (curr_func == NULL) { // if variable is global
+                        strcpy(new_heap_var->scope, "global");
+                    }
+                    else {
+                        strcpy(new_heap_var->scope, curr_func->function_name);
+                    }
+
+                    char malloc_type[1024];
+                    strcpy(malloc_type, new_var->type);
+                    if (strstr(malloc_type, "*")) {
+                        char *ptr_symbol_pos = strchr(malloc_type, '*');
+                        *ptr_symbol_pos = '\0';
+                    }
+                    strcpy(new_heap_var->type, malloc_type);
+
+                    bool is_numerical_param = true;
+                    char *start_param = strchr(line, '(') + 1;
+                    char malloc_param[1024];
+                    int i = 0;
+                    while (*start_param != ';') {
+                        if (isalpha(*start_param)) {
+                            is_numerical_param = false;
+                        }
+                        malloc_param[i] = *start_param;
+                        start_param++;
+                        i++;
+                    }
+                    malloc_param[i-1] = '\0'; // take out last parentheses
+                
+                    if (is_numerical_param) {
+                        new_heap_var->size = atoi(malloc_param);
+                    }
+                    else {
+                        if (strcmp(malloc_param, "sizeof(int)") == 0) {
+                            new_heap_var->size = sizeof(int);
+                        }
+                        else if (strcmp(malloc_param, "sizeof(float)") == 0) {
+                            new_heap_var->size = sizeof(float);
+                        }
+                        else if (strcmp(malloc_param, "sizeof(char)") == 0) {
+                            new_heap_var->size = sizeof(char);
+                        }
+                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "int") && strstr(malloc_param, "*")) {
+                            new_heap_var->size = sizeof(int*);
+                        }
+                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "float") && strstr(malloc_param, "*")) {
+                            new_heap_var->size = sizeof(float*);
+                        }
+                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "char") && strstr(malloc_param, "*")) {
+                            new_heap_var->size = sizeof(char*);
+                        }
+                    }
+
+                    insertMemNode(heap_head, new_heap_var);
                 }
             }
             if (strstr(line, "[") && strstr(line, "]") && strstr(line, "{")) {
@@ -371,14 +425,12 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
         if (param_name[0] == '*' && param_name[1] == '*') {
             param_name += 2;
             strcpy(param_name_str, param_name);
-            printf("%s\n", param_name);
             strcat(type, " **");
             
         }
         else if (param_name[0] == '*') {
             param_name++;
             strcpy(param_name_str, param_name);
-            printf("%s\n", param_name);
             strcat(type, " *");
             
         }
@@ -470,7 +522,77 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
                     curr_func = NULL;
                 }
 
-                isVar(line, types, num_types, curr_func, ro_head, static_head, heap_head, stack_head);
+                bool containsVar = isVar(line, types, num_types, curr_func, ro_head, static_head, heap_head, stack_head);
+                if (!containsVar && strstr(line, "malloc")) {
+                    MemNode *new_heap_var = malloc(sizeof(MemNode));
+                    new_heap_var->next = NULL;
+
+                    char line_copy[1024];
+                    strcpy(line_copy, line);
+
+                    char malloc_type[1024];
+
+                    char *malloc_token = strtok(line_copy, " =");
+                    char var_name[1024];
+                    strcpy(var_name, malloc_token);
+
+                    MemNode *ptr = stack_head;
+                    while(ptr != NULL) {
+                        if(strcmp(ptr->var_name, var_name) == 0) {
+                            strcpy(new_heap_var->var_name, var_name);
+                            strcpy(malloc_type, ptr->type);
+                            strcpy(new_heap_var->scope, ptr->scope);
+                            break;
+                        }
+                        ptr = ptr->next;
+                    }
+
+                    if (strstr(malloc_type, "*")) {
+                        char *ptr_symbol_pos = strchr(malloc_type, '*');
+                        *ptr_symbol_pos = '\0';
+                    }
+                    strcpy(new_heap_var->type, malloc_type);
+
+                    bool is_numerical_param = true;
+                    char *start_param = strchr(line, '(') + 1;
+                    char malloc_param[1024];
+                    int i = 0;
+                    while (*start_param != ';') {
+                        if (isalpha(*start_param)) {
+                            is_numerical_param = false;
+                        }
+                        malloc_param[i] = *start_param;
+                        start_param++;
+                        i++;
+                    }
+                    malloc_param[i-1] = '\0'; // take out last parentheses
+                
+                    if (is_numerical_param) {
+                        new_heap_var->size = atoi(malloc_param);
+                    }
+                    else {
+                        if (strcmp(malloc_param, "sizeof(int)") == 0) {
+                            new_heap_var->size = sizeof(int);
+                        }
+                        else if (strcmp(malloc_param, "sizeof(float)") == 0) {
+                            new_heap_var->size = sizeof(float);
+                        }
+                        else if (strcmp(malloc_param, "sizeof(char)") == 0) {
+                            new_heap_var->size = sizeof(char);
+                        }
+                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "int") && strstr(malloc_param, "*")) {
+                            new_heap_var->size = sizeof(int*);
+                        }
+                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "float") && strstr(malloc_param, "*")) {
+                            new_heap_var->size = sizeof(float*);
+                        }
+                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "char") && strstr(malloc_param, "*")) {
+                            new_heap_var->size = sizeof(char*);
+                        }
+                    }
+
+                    insertMemNode(heap_head, new_heap_var);
+                }
             }
 
             stats->num_lines++;
