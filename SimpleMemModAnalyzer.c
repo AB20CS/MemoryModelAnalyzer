@@ -243,8 +243,21 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
 
             if (strcmp(var_name, "") != 0) {
-                // modify type field
-                if (strstr(line, "[") && strstr(line, "]")) { // if variable is array
+                
+                if (strstr(line, "[") && strstr(line, "]") && strstr(line, "{")) {
+                    strcat(type, "[]");
+                    int num_commas = 0;
+                    char *idx = strchr(line, '{');
+                    while (*idx != '}') {
+                        if (*idx == ',') {
+                            num_commas++;
+                        }
+                        idx++;
+                    }
+                    num_elements = num_commas + 1;
+                }
+
+                else if (strstr(line, "[") && strstr(line, "]")) { // if variable is array
                     strcat(type, "[]");
                     char num_elements_str[100];
                     char *idx = strchr(line, '[') + 1;
@@ -257,6 +270,8 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                     num_elements_str[i] = '\0';
                     num_elements = atoi(num_elements_str);
                 }
+
+                // modify type field
                 if (var_name[0] == '*') {
                     strcat(type, "*");
                     var_name++;
@@ -283,21 +298,24 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
                     strcpy(new_var->scope, curr_func->function_name);
 
-                    if (strstr(line, "malloc")) {
-                        char line_malloc[1024];
-                        // strcpy(line_malloc, line);
-                        // char *token = strtok(line_malloc, "(");
-                        // char *size_str = strtok(line_malloc, ")");
-                        // num_elements = atoi(size_str);
-                        insertMemNode(heap_head, new_var);
-                    }
-                    else if (strstr(line, "= \"")) {
+                    
+                    if (strstr(line, "= \"")) {
                         insertMemNode(ro_head, new_var);
                     }
                     else  {
+                        if (strstr(line, "malloc")) {
+                            char line_malloc[1024];
+                            // strcpy(line_malloc, line);
+                            // char *token = strtok(line_malloc, "(");
+                            // char *size_str = strtok(line_malloc, ")");
+                            // num_elements = atoi(size_str);
+                        }
                         insertMemNode(stack_head, new_var);
                     }
                 }
+            }
+            if (strstr(line, "[") && strstr(line, "]") && strstr(line, "{")) {
+                break;
             }
             var_name = strtok(NULL, ",;");
         }
@@ -349,24 +367,38 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
             params++; // remove first character if it is a space
         }
         type = params;
+
+        if (strcmp(params, "const") == 0 || strcmp(params, "static") == 0) {
+            char type_word2[1024];
+            strcpy(type_word2, " ");
+            strcat(type_word2, strtok(NULL, " "));
+            strcat(type, type_word2);
+        }
+
         param_name = strtok(NULL, ",)");
 
         if (param_name[0] == '*' && param_name[1] == '*') {
             param_name += 2;
             strcpy(param_name_str, param_name);
+            printf("%s\n", param_name);
             strcat(type, " **");
+            
         }
         else if (param_name[0] == '*') {
             param_name++;
             strcpy(param_name_str, param_name);
-            strcat(type, " *");
             printf("%s\n", param_name);
+            strcat(type, " *");
+            
         }
 
         // construct node
         MemNode *new_var = malloc(sizeof(MemNode));
         strcpy(new_var->type, type);
-        strcpy(new_var->var_name, param_name_str);
+        if (strlen(param_name_str) == 0)
+            strcpy(new_var->var_name, param_name);
+        else
+            strcpy(new_var->var_name, param_name_str);
         strcpy(new_var->scope, new_func->function_name);
         new_var->size = getSize(type, num_elements);
         new_var->next = NULL;
@@ -374,6 +406,8 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
         new_func->num_variables++;
 
         params = strtok(NULL, " ");
+        strcpy(param_name, "");
+        strcpy(param_name_str, "");
     }
 
     return new_func;
@@ -435,12 +469,12 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
                 }
             }
             else {
-                if (!strstr(line, "{") && !strstr(line, "}")) {
+                if (line[0] != '{' && line[0] != '}') {
                     curr_func->num_lines++;
                 }
                 
                 // end of function reached
-                if (strstr(line, "}")) {
+                if (line[0] == '}') {
                     reading_function = false; 
                     curr_func = NULL;
                 }
