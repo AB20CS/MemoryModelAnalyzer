@@ -335,7 +335,7 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
     
     // keep track of paramaters as variables
     char *params = strtok(header_copy, "(");
-    // params = strtok(NULL, ")");
+    params = strtok(NULL, ")");
     params = strtok(params, " ");
 
     char *type;
