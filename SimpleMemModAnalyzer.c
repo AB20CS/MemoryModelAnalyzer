@@ -143,6 +143,21 @@ int getSize(char *type, int num_elements) {
     return size_per_element * num_elements;
 }
 
+/**
+ * Returns true iff str is whitespace
+ * 
+ */
+bool isWhitespace(char *str) {
+    int i = 0;
+    while (str[i] != '\0') {
+        if (!isspace(str[i])) {
+            return false;
+        }
+        i++;
+    }
+    return true;
+}
+
 
 /**
  * Returns true iff line is a function header
@@ -320,13 +335,14 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
     
     // keep track of paramaters as variables
     char *params = strtok(header_copy, "(");
-    params = strtok(NULL, ")");
+    // params = strtok(NULL, ")");
     params = strtok(params, " ");
 
     char *type;
     char *param_name;
+    char param_name_str[1024];
     int num_elements;
-    while (params != NULL) {
+    while (params != NULL && !isWhitespace(params)) {
         num_elements = 1;
 
         if (params[0] == ' ') {
@@ -334,16 +350,23 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
         }
         type = params;
         param_name = strtok(NULL, ",)");
-  
-        if (param_name[0] == '*') {
-            strcat(type, " *");
+
+        if (param_name[0] == '*' && param_name[1] == '*') {
+            param_name += 2;
+            strcpy(param_name_str, param_name);
+            strcat(type, " **");
+        }
+        else if (param_name[0] == '*') {
             param_name++;
+            strcpy(param_name_str, param_name);
+            strcat(type, " *");
+            printf("%s\n", param_name);
         }
 
         // construct node
         MemNode *new_var = malloc(sizeof(MemNode));
         strcpy(new_var->type, type);
-        strcpy(new_var->var_name, param_name);
+        strcpy(new_var->var_name, param_name_str);
         strcpy(new_var->scope, new_func->function_name);
         new_var->size = getSize(type, num_elements);
         new_var->next = NULL;
