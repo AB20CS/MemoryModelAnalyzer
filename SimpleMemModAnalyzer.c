@@ -387,6 +387,9 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
     char *return_type = strtok(header, " ");
     char *function_name = strtok(NULL, "(");
 
+    while(function_name[0] == '*') {
+        function_name++;
+    }
 
     FunctionNode *new_func = malloc(sizeof(FunctionNode));
     new_func->num_lines = 0;
