@@ -112,32 +112,23 @@ void deleteMemList(MemNode *head) {
  */
 int getSize(char *type, int num_elements) {
     int size_per_element;
-    if (strcmp(type, "int") == 0 || strcmp(type, "int []") == 0 || strcmp(type, "int[]") == 0) {
+    if (strstr(type, "int") && !strstr(type, "*")) {
         size_per_element = sizeof(int);
     }
-    else if (strcmp(type, "float") == 0 || strcmp(type, "float []") == 0 || strcmp(type, "float[]") == 0) {
+    else if (strstr(type, "float") && !strstr(type, "*")) {
         size_per_element = sizeof(float);
     }
-    else if (strcmp(type, "char") == 0 || strcmp(type, "char []") == 0 || strcmp(type, "char[]") == 0) {
+    else if (strstr(type, "char") && !strstr(type, "*")) {
         size_per_element = sizeof(char);
     }
-    else if (strcmp(type, "int *") == 0 || strcmp(type, "int*") == 0) {
+    else if (strstr(type, "int") && strstr(type, "*")) {
         size_per_element = sizeof(int*);
     }
-    else if (strcmp(type, "float *") == 0 || strcmp(type, "float*") == 0) {
+    else if (strstr(type, "float") && strstr(type, "*")) {
         size_per_element = sizeof(float*);
     }
-    else if (strcmp(type, "char *") == 0 || strcmp(type, "char*") == 0) {
+    else if (strstr(type, "char") && strstr(type, "*")) {
         size_per_element = sizeof(char*);
-    }
-    else if (strcmp(type, "int **") == 0 || strcmp(type, "int**") == 0) {
-        size_per_element = sizeof(int**);
-    }
-    else if (strcmp(type, "float **") == 0 || strcmp(type, "float**") == 0) {
-        size_per_element = sizeof(float**);
-    }
-    else if (strcmp(type, "char **") == 0 || strcmp(type, "char**") == 0) {
-        size_per_element = sizeof(char**);
     }
 
     return size_per_element * num_elements;
