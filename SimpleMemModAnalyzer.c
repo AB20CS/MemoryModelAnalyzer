@@ -330,7 +330,24 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                     strcpy(new_var->scope, curr_func->function_name);
 
                     if (strstr(line, "= \"")) {
-                        insertMemNode(ro_head, new_var);
+                        // hold variable in stack
+                        insertMemNode(stack_head, new_var);
+
+                        MemNode *ro_var = malloc(sizeof(MemNode));
+                        memcpy(ro_var, new_var, sizeof(MemNode));
+                        // declared as pointer (as opposed to an array)
+                        if (strstr(ro_var->type, "*")) {
+                            char *start_str_lit = strchr(line, '\"') + 1;
+                            int size_str_lit = 0;
+                            while (*start_str_lit != '\"') {
+                                size_str_lit++;
+                                start_str_lit++;
+                            }
+                            size_str_lit--;
+                            sprintf(ro_var->size, "%d", size_str_lit);
+                        }
+
+                        insertMemNode(ro_head, ro_var);
                     }
                     else if (is_static){
                         insertMemNode(static_head, new_var);
