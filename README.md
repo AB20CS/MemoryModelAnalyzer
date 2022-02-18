@@ -26,7 +26,7 @@
 ## Running the Program
   1. Navigate to the directory (i.e., `cd`) in which `SimpleMemModAnalyzer.c` is saved on your machine.
   2. In the terminal, enter `gcc SimpleMemModAnalyzer.c -o SimpleMemModAnalyzer` to compile the program.
-  3. To execute the program, enter `./SimpleMemModAnalyzer` into the terminal.
+  3. To execute the program, enter `./SimpleMemModAnalyzer file.c` into the terminal, where `file` is the name of the file with the C source code.
 
 ## Test Cases
 #### Test Case #1
