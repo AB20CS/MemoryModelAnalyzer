@@ -23,6 +23,11 @@
 | `void deleteMemList(MemNode *head)` | Deletes a MemNode linked list whose head is `head` |
 | `bool isWhitespace(char *str)` | Returns true iff `str` is whitespace |
 
+## Running the Program
+  1. Navigate to the directory (i.e., `cd`) in which `SimpleMemModAnalyzer.c` is saved on your machine.
+  2. In the terminal, enter `gcc SimpleMemModAnalyzer.c -o SimpleMemModAnalyzer` to compile the program.
+  3. To execute the program, enter `./SimpleMemModAnalyzer` into the terminal.
+
 ## Test Cases
 #### Test Case #1
 - Contains global variables (part of static data) 
