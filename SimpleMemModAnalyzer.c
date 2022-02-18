@@ -186,18 +186,55 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
     char line_copy[1024]; // copy of line for tokenization
     strcpy(line_copy, line);
     char *type = strtok(line_copy, " ");
-    
-    strcat(type, " ");
-    
+    char type_word2[1024];
+    strcpy(type_word2, "");
+
+    bool is_static = false;
+
+    if (strcmp(type, "const") == 0 || strcmp(type, "static") == 0) {
+        
+        if (strcmp(type, "static") == 0) {
+            is_static = true;
+        }
+        
+        strcpy(type_word2, " ");
+        strcat(type_word2, strtok(NULL, " "));
+        strcat(type, type_word2);
+        strcat(type_word2, " "); 
+        
+    }
+
     for (int i = 0; i < num_types; i++) {
-        if (strcmp(type, types[i]) == 0) {
+        char curr_type[10];
+        strcpy(curr_type, types[i]);
+        curr_type[strlen(curr_type)-1] = '\0';
+        
+        // remove spaces in beginning and end of type_word2
+        
+        char type_word2_no_spaces[1024];
+        if (type_word2[0] == ' ') { // if space in beginning
+            strcpy(type_word2_no_spaces, &type_word2[1]);
+        }
+        else {
+            strcpy(type_word2_no_spaces, type_word2);
+        }
+        // if space at end
+        if (type_word2_no_spaces[strlen(type_word2_no_spaces) - 1] == ' ') {
+            type_word2_no_spaces[strlen(type_word2_no_spaces) - 1] = '\0';
+        }
+
+        // comparisons between read type and accepted types
+        if ((strlen(type_word2_no_spaces) == 0) && (strcmp(type, curr_type) == 0)) {
+            contains_var = true;
+            break;
+        }
+        else if ((strlen(type_word2_no_spaces) != 0) && (strcmp(type_word2_no_spaces, curr_type) == 0)) {
             contains_var = true;
             break;
         }
     }
 
     if (contains_var) { 
-        
         char line_copy_var[1024]; // copy of line for tokenization
         strcpy(line_copy_var, line);
 
@@ -207,8 +244,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
             ptr++;
         }
 
-
-        char *next_var = strchr(ptr, ' ');
+        char *next_var = strtok(NULL, " ");
         char *var_name = strtok(next_var, ",;");
         int num_elements = 1;
         
@@ -235,7 +271,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
 
             if (strcmp(var_name, "") != 0) {
-                
+                // if array elements initialized in "type arr[] = {_, _, ... , _};" form
                 if (strstr(line, "[") && strstr(line, "]") && strstr(line, "{")) {
                     strcat(type, "[]");
                     int num_commas = 0;
@@ -264,7 +300,11 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                 }
 
                 // modify type field
-                if (var_name[0] == '*') {
+                if (strlen(var_name) > 2 && var_name[0] == '*' && var_name[1] == '*') {
+                    strcat(type, "**");
+                    var_name += 2;
+                }
+                else if (var_name[0] == '*') {
                     strcat(type, "*");
                     var_name++;
                 }
@@ -272,7 +312,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                     type[strlen(type) - 1] = '\0';
                 }
                 
-
+                
                 // construct node
                 MemNode *new_var = malloc(sizeof(MemNode));
                 strcpy(new_var->type, type);
@@ -289,9 +329,11 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
                     strcpy(new_var->scope, curr_func->function_name);
 
-                    
                     if (strstr(line, "= \"")) {
                         insertMemNode(ro_head, new_var);
+                    }
+                    else if (is_static){
+                        insertMemNode(static_head, new_var);
                     }
                     else  {
                         insertMemNode(stack_head, new_var);
