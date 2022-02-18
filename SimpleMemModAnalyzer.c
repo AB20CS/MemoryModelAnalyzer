@@ -25,7 +25,7 @@ typedef struct MemoryUnitListNode {
     char var_name[1024];
     char scope[1024];
     char type[1024];
-    int size;
+    char size[1024];
     struct MemoryUnitListNode *next;
 } MemNode;
 
@@ -317,7 +317,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                 MemNode *new_var = malloc(sizeof(MemNode));
                 strcpy(new_var->type, type);
                 strcpy(new_var->var_name, var_name);
-                new_var->size = getSize(type, num_elements);
+                sprintf(new_var->size, "%d", getSize(type, num_elements));
                 new_var->next = NULL;
                 
                 if (curr_func == NULL) { // if variable is global
@@ -360,42 +360,36 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                     }
                     strcpy(new_heap_var->type, malloc_type);
 
-                    bool is_numerical_param = true;
                     char *start_param = strchr(line, '(') + 1;
                     char malloc_param[1024];
                     int i = 0;
                     while (*start_param != ';') {
-                        if (isalpha(*start_param)) {
-                            is_numerical_param = false;
-                        }
                         malloc_param[i] = *start_param;
                         start_param++;
                         i++;
                     }
                     malloc_param[i-1] = '\0'; // take out last parentheses
                 
-                    if (is_numerical_param) {
-                        new_heap_var->size = atoi(malloc_param);
+                    if (strcmp(malloc_param, "sizeof(int)") == 0) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(int));
+                    }
+                    else if (strcmp(malloc_param, "sizeof(float)") == 0) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(float));
+                    }
+                    else if (strcmp(malloc_param, "sizeof(char)") == 0) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(char));
+                    }
+                    else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "int") && strstr(malloc_param, "*")) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(int*));
+                    }
+                    else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "float") && strstr(malloc_param, "*")) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(float*));
+                    }
+                    else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "char") && strstr(malloc_param, "*")) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(char*));
                     }
                     else {
-                        if (strcmp(malloc_param, "sizeof(int)") == 0) {
-                            new_heap_var->size = sizeof(int);
-                        }
-                        else if (strcmp(malloc_param, "sizeof(float)") == 0) {
-                            new_heap_var->size = sizeof(float);
-                        }
-                        else if (strcmp(malloc_param, "sizeof(char)") == 0) {
-                            new_heap_var->size = sizeof(char);
-                        }
-                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "int") && strstr(malloc_param, "*")) {
-                            new_heap_var->size = sizeof(int*);
-                        }
-                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "float") && strstr(malloc_param, "*")) {
-                            new_heap_var->size = sizeof(float*);
-                        }
-                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "char") && strstr(malloc_param, "*")) {
-                            new_heap_var->size = sizeof(char*);
-                        }
+                        strcpy(new_heap_var->size, malloc_param);
                     }
 
                     insertMemNode(heap_head, new_heap_var);
@@ -488,7 +482,7 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
         else
             strcpy(new_var->var_name, param_name_str);
         strcpy(new_var->scope, new_func->function_name);
-        new_var->size = getSize(type, num_elements);
+        sprintf(new_var->size, "%d", getSize(type, num_elements));
         new_var->next = NULL;
         insertMemNode(stack_head, new_var);
         new_func->num_variables++;
@@ -568,7 +562,7 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
                 }
 
                 bool containsVar = isVar(line, types, num_types, curr_func, ro_head, static_head, heap_head, stack_head);
-                if (!containsVar && strstr(line, "malloc")) {
+                if (!containsVar && strstr(line, "malloc") && strstr(line, "=")) {
                     MemNode *new_heap_var = malloc(sizeof(MemNode));
                     new_heap_var->next = NULL;
 
@@ -583,7 +577,7 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
 
                     MemNode *ptr = stack_head;
                     while(ptr != NULL) {
-                        if(strcmp(ptr->var_name, var_name) == 0) {
+                        if(strcmp(ptr->var_name, var_name) == 0 && strcmp(ptr->scope, curr_func->function_name) == 0) {
                             strcpy(new_heap_var->var_name, var_name);
                             strcpy(malloc_type, ptr->type);
                             strcpy(new_heap_var->scope, ptr->scope);
@@ -598,42 +592,36 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
                     }
                     strcpy(new_heap_var->type, malloc_type);
 
-                    bool is_numerical_param = true;
                     char *start_param = strchr(line, '(') + 1;
                     char malloc_param[1024];
                     int i = 0;
                     while (*start_param != ';') {
-                        if (isalpha(*start_param)) {
-                            is_numerical_param = false;
-                        }
                         malloc_param[i] = *start_param;
                         start_param++;
                         i++;
                     }
                     malloc_param[i-1] = '\0'; // take out last parentheses
                 
-                    if (is_numerical_param) {
-                        new_heap_var->size = atoi(malloc_param);
+                    if (strcmp(malloc_param, "sizeof(int)") == 0) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(int));
+                    }
+                    else if (strcmp(malloc_param, "sizeof(float)") == 0) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(float));
+                    }
+                    else if (strcmp(malloc_param, "sizeof(char)") == 0) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(char));
+                    }
+                    else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "int") && strstr(malloc_param, "*")) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(int*));
+                    }
+                    else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "float") && strstr(malloc_param, "*")) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(float*));
+                    }
+                    else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "char") && strstr(malloc_param, "*")) {
+                        sprintf(new_heap_var->size, "%ld", sizeof(char*));
                     }
                     else {
-                        if (strcmp(malloc_param, "sizeof(int)") == 0) {
-                            new_heap_var->size = sizeof(int);
-                        }
-                        else if (strcmp(malloc_param, "sizeof(float)") == 0) {
-                            new_heap_var->size = sizeof(float);
-                        }
-                        else if (strcmp(malloc_param, "sizeof(char)") == 0) {
-                            new_heap_var->size = sizeof(char);
-                        }
-                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "int") && strstr(malloc_param, "*")) {
-                            new_heap_var->size = sizeof(int*);
-                        }
-                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "float") && strstr(malloc_param, "*")) {
-                            new_heap_var->size = sizeof(float*);
-                        }
-                        else if (strstr(malloc_param, "sizeof(") && strstr(malloc_param, "char") && strstr(malloc_param, "*")) {
-                            new_heap_var->size = sizeof(char*);
-                        }
+                        strcpy(new_heap_var->size, malloc_param);
                     }
 
                     insertMemNode(heap_head, new_heap_var);
@@ -689,7 +677,7 @@ void printOutput(Stats *stats, FunctionNode *func_head, MemNode *ro_head, MemNod
     // string_literals
     mp = ro_head;
     while (mp != NULL) {
-        printf("   %s   %s   %s   %d\n", mp->var_name, mp->scope, mp->type, mp->size);
+        printf("   %s   %s   %s   %s\n", mp->var_name, mp->scope, mp->type, mp->size);
         mp = mp->next;
     }
 
@@ -697,7 +685,7 @@ void printOutput(Stats *stats, FunctionNode *func_head, MemNode *ro_head, MemNod
     // global_variables
     mp = static_head;
     while (mp != NULL) {
-        printf("   %s   %s   %s   %d\n", mp->var_name, mp->scope, mp->type, mp->size);
+        printf("   %s   %s   %s   %s\n", mp->var_name, mp->scope, mp->type, mp->size);
         mp = mp->next;
     }
 
@@ -705,7 +693,7 @@ void printOutput(Stats *stats, FunctionNode *func_head, MemNode *ro_head, MemNod
     // heap variables
     mp = heap_head;
     while (mp != NULL) {
-        printf("   %s   %s   %s   %d\n", mp->var_name, mp->scope, mp->type, mp->size);
+        printf("   %s   %s   %s   %s\n", mp->var_name, mp->scope, mp->type, mp->size);
         mp = mp->next;
     }
 
@@ -715,7 +703,7 @@ void printOutput(Stats *stats, FunctionNode *func_head, MemNode *ro_head, MemNod
     // stack variables
     mp = stack_head;
     while (mp != NULL) {
-        printf("   %s   %s   %s   %d\n", mp->var_name, mp->scope, mp->type, mp->size);
+        printf("   %s   %s   %s   %s\n", mp->var_name, mp->scope, mp->type, mp->size);
         mp = mp->next;
     }
 
