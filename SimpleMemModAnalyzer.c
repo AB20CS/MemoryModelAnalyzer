@@ -329,7 +329,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
                     strcpy(new_var->scope, curr_func->function_name);
 
-                    if (strstr(line, "= \"")) {
+                    if (strstr(line, "= \"") || strstr(line, "=\"")) {
                         // hold variable in stack
                         insertMemNode(stack_head, new_var);
 
