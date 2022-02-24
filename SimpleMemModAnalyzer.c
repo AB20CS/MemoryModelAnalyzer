@@ -538,26 +538,58 @@ FunctionNode *initFunction(char *header, FunctionNode *func_head, MemNode *stack
         if (param_name[0] == '*' && param_name[1] == '*') {
             param_name += 2;
             strcpy(param_name_str, param_name);
-            strcat(type, " **");
+            strcat(type, "**");
             
         }
         else if (param_name[0] == '*') {
             param_name++;
             strcpy(param_name_str, param_name);
-            strcat(type, " *");
+            strcat(type, "*");
             
         }
+        
 
         // construct node
         MemNode *new_var = malloc(sizeof(MemNode));
-        strcpy(new_var->type, type);
+        
         if (strlen(param_name_str) == 0)
             strcpy(new_var->var_name, param_name);
         else
             strcpy(new_var->var_name, param_name_str);
+        
+        char *idx_bracket = strchr(param_name, '[');
+        if (idx_bracket) {
+            *idx_bracket = '\0';
+            strcpy(new_var->var_name, param_name);
+            
+            idx_bracket++;
+            char num_elements_str[100];
+            int i = 0;
+            bool is_numeric = true;
+
+            strcat(type, "[");
+            while (*idx_bracket != ']') {
+                num_elements_str[i] = *idx_bracket;
+                if (!isdigit(num_elements_str[i])) {
+                    is_numeric = false;
+                }
+                i++;
+                idx_bracket++;
+            }
+            num_elements_str[i] = '\0';
+            strcat(type, num_elements_str);
+            strcat(type, "]");
+
+            if (is_numeric) {
+                num_elements = atoi(num_elements_str);
+            }
+        }
+
+        strcpy(new_var->type, type);
         strcpy(new_var->scope, new_func->function_name);
         sprintf(new_var->size, "%d", getSize(type, num_elements));
         new_var->next = NULL;
+
         insertMemNode(stack_head, new_var);
         new_func->num_variables++;
 
