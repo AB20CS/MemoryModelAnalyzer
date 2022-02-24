@@ -244,8 +244,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
             ptr++;
         }
 
-        char *next_var = strtok(NULL, " ");
-        char *var_name = strtok(next_var, ",;");
+        char *var_name = strtok(NULL, ",;");
         int num_elements = 1;
         
         while (var_name != NULL) {
