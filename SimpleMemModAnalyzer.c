@@ -271,32 +271,76 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
 
             if (strcmp(var_name, "") != 0) {
+                char num_elements_not_numeric[1024];
+                strcpy(num_elements_not_numeric, "");
+                
                 // if array elements initialized in "type arr[] = {_, _, ... , _};" form
                 if (strstr(line, "[") && strstr(line, "]") && strstr(line, "{")) {
-                    strcat(type, "[]");
-                    int num_commas = 0;
-                    char *idx = strchr(line, '{');
-                    while (*idx != '}') {
-                        if (*idx == ',') {
-                            num_commas++;
+                    if (strstr(line, "[]")) {
+                        strcat(type, "[]");
+                        int num_commas = 0;
+                        char *idx = strchr(line, '{');
+                        while (*idx != '}') {
+                            if (*idx == ',') {
+                                num_commas++;
+                            }
+                            idx++;
                         }
-                        idx++;
+                        num_elements = num_commas + 1;
                     }
-                    num_elements = num_commas + 1;
+                    else  {
+                        bool is_numeric = true;
+                        char num_elements_str[100];
+                        strcat(type, "[");
+                        
+                        int i = 0;
+                        char *idx = strchr(line, '[') + 1;
+                        while (*idx != ']') {
+                            num_elements_str[i] = *idx;
+                            if (!isdigit(num_elements_str[i])) {
+                                is_numeric = false;
+                            }
+                            i++;
+                            idx++;
+                        }
+                        num_elements_str[i] = '\0';
+                        strcat(type, num_elements_str);
+                        strcat(type, "]");
+                        if (is_numeric) {
+                            num_elements = atoi(num_elements_str);
+                        }
+                        else {
+                            num_elements = -1;
+                            strcpy(num_elements_not_numeric, num_elements_str);
+                        }
+                    }
+                    
                 }
 
                 else if (strstr(line, "[") && strstr(line, "]")) { // if variable is array
-                    strcat(type, "[]");
+                    strcat(type, "[");
                     char num_elements_str[100];
                     char *idx = strchr(line, '[') + 1;
                     int i = 0;
+                    bool is_numeric = true;
                     while (*idx != ']') {
                         num_elements_str[i] = *idx;
+                        if (!isdigit(num_elements_str[i])) {
+                            is_numeric = false;
+                        }
                         i++;
                         idx++;
                     }
                     num_elements_str[i] = '\0';
-                    num_elements = atoi(num_elements_str);
+                    strcat(type, num_elements_str);
+                    strcat(type, "]");
+                    if (is_numeric) {
+                        num_elements = atoi(num_elements_str);
+                    }
+                    else {
+                        num_elements = -1;
+                        strcpy(num_elements_not_numeric, num_elements_str);
+                    }
                 }
 
                 // modify type field
@@ -317,7 +361,20 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                 MemNode *new_var = malloc(sizeof(MemNode));
                 strcpy(new_var->type, type);
                 strcpy(new_var->var_name, var_name);
-                sprintf(new_var->size, "%d", getSize(type, num_elements));
+                if (num_elements != -1) {
+                    sprintf(new_var->size, "%d", getSize(type, num_elements));
+                }
+                else {
+                    if (strstr(type, "int")) {
+                        sprintf(new_var->size, "%s*sizeof(int)", num_elements_not_numeric);
+                    }
+                    else if (strstr(type, "float")) {
+                        sprintf(new_var->size, "%s*sizeof(float)", num_elements_not_numeric);
+                    }
+                    else if (strstr(type, "char")) {
+                        sprintf(new_var->size, "%s*sizeof(char)", num_elements_not_numeric);
+                    }
+                }
                 new_var->next = NULL;
                 
                 if (curr_func == NULL) { // if variable is global
@@ -329,7 +386,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
                     strcpy(new_var->scope, curr_func->function_name);
 
-                    if (strstr(line, "= \"") || strstr(line, "=\"")) {
+                    if (strstr(line, "*") && (strstr(line, "= \"") || strstr(line, "=\""))) {
                         // hold variable in stack
                         insertMemNode(stack_head, new_var);
 
@@ -343,8 +400,9 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
                                 size_str_lit++;
                                 start_str_lit++;
                             }
-                            size_str_lit--;
+                            size_str_lit++;
                             sprintf(ro_var->size, "%d", size_str_lit);
+                            strcpy(ro_var->type, "literal");
                         }
 
                         insertMemNode(ro_head, ro_var);
@@ -359,7 +417,7 @@ bool isVar(char *line, char **types, int num_types, FunctionNode *curr_func,
 
                 if (strstr(line, "malloc")) {
                     MemNode *new_heap_var = malloc(sizeof(MemNode));
-                    strcpy(new_heap_var->var_name, var_name);
+                    sprintf(new_heap_var->var_name, "*%s", var_name);
                     new_heap_var->next = NULL;
 
                     if (curr_func == NULL) { // if variable is global
@@ -595,7 +653,7 @@ int readFile(Stats *stats, int argc, char **argv, FunctionNode *func_head, MemNo
                     MemNode *ptr = stack_head;
                     while(ptr != NULL) {
                         if(strcmp(ptr->var_name, var_name) == 0 && strcmp(ptr->scope, curr_func->function_name) == 0) {
-                            strcpy(new_heap_var->var_name, var_name);
+                            sprintf(new_heap_var->var_name, "*%s", var_name);
                             strcpy(malloc_type, ptr->type);
                             strcpy(new_heap_var->scope, ptr->scope);
                             break;
