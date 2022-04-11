@@ -1,4 +1,4 @@
-# SimpleMemModAnalyzer
+# UNIX Memory Model Analyzer
 
 ## Approach
 #### Overview
